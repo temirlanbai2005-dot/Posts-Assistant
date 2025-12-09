@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";;
 import { AppSettings, LLMSource, SocialPlatform, TrendItem, TrendCategory } from "../types";
 import { 
   SYSTEM_INSTRUCTION_GENERATOR, 
