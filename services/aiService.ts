@@ -13,7 +13,7 @@ import {
 } from "../constants";
 
 // --- CONFIGURATION ---
-const MODEL_NAME = "gemini-1.5-flash";
+const MODEL_NAME = "gemini-2.5-flash";
 
 // --- HELPER: Get AI Instance ---
 const getAI = (): GoogleGenerativeAI => {
