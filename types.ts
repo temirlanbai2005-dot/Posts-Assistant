@@ -7,7 +7,8 @@ export enum SocialPlatform {
   ArtStation = 'ArtStation',
   TikTok = 'TikTok',
   Pinterest = 'Pinterest',
-  Threads = 'Threads'
+  Threads = 'Threads',
+  YouTube = 'YouTube'
 }
 
 export enum LLMSource {
@@ -18,6 +19,7 @@ export enum LLMSource {
 
 export enum AppMode {
   Generator = 'generator',
+  Ideas = 'ideas', // New Tab
   Trends = 'trends',
   VisualAudit = 'visual_audit',
   Business = 'business',
@@ -34,13 +36,16 @@ export enum TrendCategory {
 
 export interface AppSettings {
   userStyle: string;
-  targetLanguage: string;
+  // Global Fallback
+  targetLanguage: string; 
+  // Per-Platform Language Overrides
+  platformLanguages: Record<SocialPlatform, string>;
+  
   llmSource: LLMSource;
   customApiUrl: string;
   customApiKey: string;
-  // Reminder Settings
   enableDailyReminders: boolean;
-  dailyReminderTime: string; // HH:MM format
+  dailyReminderTime: string;
 }
 
 export interface GeneratedPost {
@@ -48,6 +53,14 @@ export interface GeneratedPost {
   content: string;
   critique: string;
   hashtags: string[];
+}
+
+export interface ContentIdea {
+  headline: string;
+  platform: SocialPlatform;
+  targetAudience: string; // "Clients", "Juniors", "General"
+  goal: string; // "Sales", "Viral", "Brand"
+  reasoning: string;
 }
 
 export interface TrendItem {
@@ -64,6 +77,7 @@ export interface TrendItem {
 export interface GeneratorState {
   initialTopic?: string;
   initialPlatform?: SocialPlatform;
+  timestamp?: number; // Added to force effect triggers
 }
 
 export interface Task {
