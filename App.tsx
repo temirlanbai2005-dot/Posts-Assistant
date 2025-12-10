@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { AppMode, AppSettings, LLMSource, GeneratorState, TrendItem, TrendCategory, Task, Note } from './types';
+import { AppMode, AppSettings, LLMSource, GeneratorState, TrendItem, TrendCategory, Task, Note, SocialPlatform, ContentIdea } from './types';
 import { DEFAULT_STYLE } from './constants';
 import { analyzeTrends } from './services/aiService';
 import PostGenerator from './components/PostGenerator';
@@ -8,11 +9,23 @@ import WorkAnalyzer from './components/WorkAnalyzer';
 import BusinessCenter from './components/BusinessCenter';
 import TaskManager from './components/TaskManager';
 import Settings from './components/Settings';
-import { LayoutDashboard, PenTool, Settings as SettingsIcon, Image as ImageIcon, Briefcase, Activity, CheckSquare } from 'lucide-react';
+import IdeaLab from './components/IdeaLab';
+import { LayoutDashboard, PenTool, Settings as SettingsIcon, Image as ImageIcon, Briefcase, Activity, CheckSquare, Lightbulb } from 'lucide-react';
+
+// Initialize defaults based on user persona
+const initialLangMap: any = {};
+Object.values(SocialPlatform).forEach(p => {
+    if ([SocialPlatform.Telegram, SocialPlatform.TikTok, SocialPlatform.Threads, SocialPlatform.YouTube].includes(p)) {
+        initialLangMap[p] = "Russian";
+    } else {
+        initialLangMap[p] = "English";
+    }
+});
 
 const DEFAULT_SETTINGS: AppSettings = {
     userStyle: DEFAULT_STYLE,
-    targetLanguage: 'Russian', 
+    targetLanguage: 'English', 
+    platformLanguages: initialLangMap,
     llmSource: LLMSource.CloudGemini,
     customApiUrl: '',
     customApiKey: '',
@@ -22,11 +35,12 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 const App: React.FC = () => {
   const [currentMode, setCurrentMode] = useState<AppMode>(AppMode.Generator);
+  // We use a timestamp to force updates in PostGenerator even if the topic string is the same but re-clicked
   const [generatorState, setGeneratorState] = useState<GeneratorState>({});
   
   const [settings, setSettings] = useState<AppSettings>(() => {
       const saved = localStorage.getItem('app_settings');
-      return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+      return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
   });
 
   useEffect(() => { localStorage.setItem('app_settings', JSON.stringify(settings)); }, [settings]);
@@ -57,10 +71,20 @@ const App: React.FC = () => {
   const handleTrendSelect = (trend: TrendItem) => {
       setGeneratorState({
           initialTopic: `${trend.trendName}: ${trend.description}. Focus on: ${trend.hypeReason}.`,
-          initialPlatform: trend.platform
+          initialPlatform: trend.platform,
+          timestamp: Date.now()
       });
       setCurrentMode(AppMode.Generator);
   };
+
+  const handleIdeaSelect = (idea: ContentIdea) => {
+      setGeneratorState({
+          initialTopic: idea.headline,
+          initialPlatform: idea.platform,
+          timestamp: Date.now()
+      });
+      setCurrentMode(AppMode.Generator);
+  }
 
   const performScan = async (silent = false) => {
       if(!silent) setIsScanning(true);
@@ -81,25 +105,6 @@ const App: React.FC = () => {
       return () => clearInterval(interval);
   }, [autoMonitor, settings, activeTrendCategory]);
 
-  const renderContent = () => {
-    switch (currentMode) {
-      case AppMode.Generator:
-        return <PostGenerator settings={settings} initialTopic={generatorState.initialTopic} initialPlatform={generatorState.initialPlatform} />;
-      case AppMode.Trends:
-        return <TrendAnalyzer settings={settings} onSelectTrend={handleTrendSelect} trends={trends} activeCategory={activeTrendCategory} onCategoryChange={setActiveTrendCategory} autoMonitor={autoMonitor} onAutoMonitorChange={setAutoMonitor} isScanning={isScanning} onManualScan={() => performScan(false)} />;
-      case AppMode.VisualAudit:
-        return <WorkAnalyzer settings={settings} />;
-      case AppMode.Business:
-        return <BusinessCenter settings={settings} />;
-      case AppMode.Tasks:
-        return <TaskManager tasks={tasks} notes={notes} onUpdateTasks={setTasks} onUpdateNotes={setNotes} settings={settings} onUpdateSettings={setSettings} />;
-      case AppMode.Settings:
-        return <Settings settings={settings} onUpdate={setSettings} />;
-      default:
-        return <PostGenerator settings={settings} />;
-    }
-  };
-
   return (
     <div className="flex h-screen bg-slate-950 text-slate-200 font-sans selection:bg-indigo-500/30">
       <nav className="w-20 md:w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between transition-all duration-300 shrink-0 z-20">
@@ -110,7 +115,8 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex flex-col gap-2 p-4">
-            <NavButton active={currentMode === AppMode.Generator} onClick={() => setCurrentMode(AppMode.Generator)} icon={<PenTool className="w-5 h-5" />} label="Generator" />
+            <NavButton active={currentMode === AppMode.Generator} onClick={() => setCurrentMode(AppMode.Generator)} icon={<PenTool className="w-5 h-5" />} label="Post Generator" />
+            <NavButton active={currentMode === AppMode.Ideas} onClick={() => setCurrentMode(AppMode.Ideas)} icon={<Lightbulb className="w-5 h-5" />} label="Idea Lab" />
             <NavButton active={currentMode === AppMode.Trends} onClick={() => setCurrentMode(AppMode.Trends)} icon={<Activity className="w-5 h-5" />} label="Live Radar" />
             <div className="my-2 border-t border-slate-800"></div>
             <NavButton active={currentMode === AppMode.Tasks} onClick={() => setCurrentMode(AppMode.Tasks)} icon={<CheckSquare className="w-5 h-5" />} label="Organizer" />
@@ -125,7 +131,28 @@ const App: React.FC = () => {
       <main className="flex-1 overflow-hidden relative w-full">
         <div className="absolute inset-0 z-0 opacity-10 pointer-events-none" style={{ backgroundImage: `radial-gradient(circle at 1px 1px, #6366f1 1px, transparent 0)`, backgroundSize: '40px 40px' }}></div>
         <div className="relative z-10 h-full overflow-y-auto">
-          {renderContent()}
+          {/* We keep all components mounted but hidden to preserve state */}
+          <div className={`h-full ${currentMode === AppMode.Generator ? 'block' : 'hidden'}`}>
+             <PostGenerator settings={settings} initialTopic={generatorState.initialTopic} initialPlatform={generatorState.initialPlatform} timestamp={generatorState.timestamp} />
+          </div>
+          <div className={`h-full ${currentMode === AppMode.Ideas ? 'block' : 'hidden'}`}>
+             <IdeaLab settings={settings} onUseIdea={handleIdeaSelect} />
+          </div>
+          <div className={`h-full ${currentMode === AppMode.Trends ? 'block' : 'hidden'}`}>
+             <TrendAnalyzer settings={settings} onSelectTrend={handleTrendSelect} trends={trends} activeCategory={activeTrendCategory} onCategoryChange={setActiveTrendCategory} autoMonitor={autoMonitor} onAutoMonitorChange={setAutoMonitor} isScanning={isScanning} onManualScan={() => performScan(false)} />
+          </div>
+          <div className={`h-full ${currentMode === AppMode.VisualAudit ? 'block' : 'hidden'}`}>
+             <WorkAnalyzer settings={settings} />
+          </div>
+          <div className={`h-full ${currentMode === AppMode.Business ? 'block' : 'hidden'}`}>
+             <BusinessCenter settings={settings} />
+          </div>
+          <div className={`h-full ${currentMode === AppMode.Tasks ? 'block' : 'hidden'}`}>
+             <TaskManager tasks={tasks} notes={notes} onUpdateTasks={setTasks} onUpdateNotes={setNotes} settings={settings} onUpdateSettings={setSettings} />
+          </div>
+          <div className={`h-full ${currentMode === AppMode.Settings ? 'block' : 'hidden'}`}>
+             <Settings settings={settings} onUpdate={setSettings} />
+          </div>
         </div>
       </main>
     </div>
